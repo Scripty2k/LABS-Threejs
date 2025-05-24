@@ -1,5 +1,5 @@
 # Functional Design Document (FDD)
-# Project Name: Scripty2k House – 3D Portfolio Experience
+## Project Name: Scripty2k House – 3D Portfolio Experience
 
 ## Goal: 
 

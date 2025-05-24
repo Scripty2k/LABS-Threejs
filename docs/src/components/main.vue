@@ -3,7 +3,9 @@ import { onMounted, ref } from 'vue';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
+
 const canvasRef = ref(null);
+
 
 const cameraPositions = [
   { x: 6.33, y: 5, z: 9.01, rotY: 0.60 },
@@ -13,6 +15,7 @@ const cameraPositions = [
 ];
 const currentIndex = ref(0);
 
+// Info panels
 const infoPanels = [
   {
     title: 'My room',
@@ -69,6 +72,7 @@ const prevPosition = () => {
     moveToIndex(cameraPositions.length - 1);
   }
 };
+
 
 onMounted(() => {
   const canvas = canvasRef.value;
