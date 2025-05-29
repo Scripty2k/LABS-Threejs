@@ -47,6 +47,33 @@ let camera, scene, renderer;
 let targetPosition = { ...cameraPositions[0] };
 let targetRotY = cameraPositions[0].rotY ?? 0;
 
+// Cube and raycast stuff
+let cube, strumCube, raycaster, mouse;
+const showCubePopup = ref(false);
+const cubePopupText = ref('I also skate!');
+let strumAudio; // Audio for strum.wav
+
+
+const isMuted = ref(false); // Mute
+const muteText = ref(''); // show when muted/unmuted
+let audio; // Make audio accessible
+let muteTimeout;
+
+const showMuteText = (text) => {
+  muteText.value = text;
+  clearTimeout(muteTimeout);
+  muteTimeout = setTimeout(() => {
+    muteText.value = '';
+  }, 1200);
+};
+
+const toggleMute = () => {
+  if (!audio) return;
+  isMuted.value = !isMuted.value;
+  audio.muted = isMuted.value;
+  showMuteText(isMuted.value ? 'Audio muted (M)' : 'Audio unmuted (M)');
+};
+
 const moveToIndex = (idx) => {
   if (idx >= 0 && idx < cameraPositions.length) {
     currentIndex.value = idx;
@@ -89,6 +116,50 @@ onMounted(() => {
   light.position.set(10, 10, 10);
   scene.add(light);
 
+  // Skateboard cube
+  const geometry = new THREE.BoxGeometry(2, 3, 1);
+  const material = new THREE.MeshStandardMaterial({ color: 0x00ff99 });
+  material.transparent = true;
+  material.opacity = 0; // Make the cube invisible
+  cube = new THREE.Mesh(geometry, material);
+  cube.position.set(-7, 1, -2);
+  scene.add(cube);
+
+  // Guitar strum cube
+  const strumGeometry = new THREE.BoxGeometry(1.5, 2, 4);
+  const strumMaterial = new THREE.MeshStandardMaterial({ color: 0xff0099 });
+  strumMaterial.transparent = true;
+  strumMaterial.opacity = 0; // Invisible
+  strumCube = new THREE.Mesh(strumGeometry, strumMaterial);
+  strumCube.position.set(5, 2, -8); // Place it somewhere else
+  scene.add(strumCube);
+
+  // Raycaster and mouse vector
+  raycaster = new THREE.Raycaster();
+  mouse = new THREE.Vector2();
+
+  // for click events
+  canvas.addEventListener('click', (event) => {
+    // Get mouse position normalized to [-1, 1]
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    // Check both cubes
+    const intersects = raycaster.intersectObjects([cube, strumCube]);
+    if (intersects.length > 0) {
+      if (intersects[0].object === cube) {
+        showCubePopup.value = true;
+        setTimeout(() => { showCubePopup.value = false; }, 2000);
+      } else if (intersects[0].object === strumCube) {
+        if (strumAudio) {
+          strumAudio.currentTime = 0;
+          strumAudio.play();
+        }
+      }
+    }
+  });
+
   // Load scene.gltf model
   const loader = new GLTFLoader();
   loader.load(
@@ -111,7 +182,7 @@ onMounted(() => {
   camera.rotation.y = targetRotY;
 
   // Play background music
-  const audio = new Audio('/src/assets/music.wav');
+  audio = new Audio('/src/assets/music.wav');
   audio.loop = true;
   audio.volume = 0.5;
   // Try to play after user interaction (for browser autoplay policy)
@@ -121,7 +192,18 @@ onMounted(() => {
   };
   window.addEventListener('click', playAudio);
 
-  // Animation loop
+  // Load strum.wav for the strumCube
+  strumAudio = new Audio('/src/assets/strum.wav');
+  strumAudio.volume = 1.0;
+
+  // Listen for M key to mute/unmute
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'm' || e.key === 'M') {
+      toggleMute();
+    }
+  });
+
+  // LOOP!
   const animate = () => {
     requestAnimationFrame(animate);
 
@@ -164,6 +246,10 @@ onMounted(() => {
       <img :src="infoPanels[currentIndex].image" alt="" class="info-image" />
       <p>{{ infoPanels[currentIndex].text }}</p>
       <div v-html="infoPanels[currentIndex].extra"></div>
+    </div>
+    <div v-if="muteText" class="mute-text">{{ muteText }}</div>
+    <div v-if="showCubePopup" class="cube-popup">
+      {{ cubePopupText }}
     </div>
   </div>
 </template>
@@ -241,5 +327,41 @@ canvas {
 .info-panel ul {
   margin: 0 0 0 18px;
   padding: 0;
+}
+.mute-text {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30,30,30,0.92);
+  color: #fff;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 1.1em;
+  z-index: 100;
+  pointer-events: none;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+  transition: opacity 0.2s;
+}
+.cube-popup {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #00ff99;
+  color: #111;
+  padding: 14px 28px;
+  border-radius: 10px;
+  font-size: 1.15em;
+  z-index: 200;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+  pointer-events: none;
+  animation: fadeInOut 2s;
+}
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { opacity: 0; }
 }
 </style>
