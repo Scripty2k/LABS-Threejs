@@ -101,6 +101,36 @@ const prevPosition = () => {
 };
 
 
+// --- Audio Visualizer Setup ---
+let audioContext, analyser, dataArray;
+const NUM_BINS = 16; // Number of cubes/visualizer bars
+let visualizerCubes = [];
+
+// --- Playlist Setup ---
+const playlist = [
+  { title: 'Morpheus Arms - Jerkcurb', file: '/src/assets/arms.wav' },
+  { title: 'Warmpop - ESPRIT', file: '/src/assets/warmpop.wav' },
+  { title: 'Heaven Or Las Vegas - Cocteau Twins', file: '/src/assets/heaven.wav' },
+];
+const nowPlaying = ref('');
+
+function pickRandomSong() {
+  const idx = Math.floor(Math.random() * playlist.length);
+  return playlist[idx];
+}
+
+let currentSong = pickRandomSong();
+nowPlaying.value = currentSong.title;
+
+
+const showNowPlaying = (song) => {
+  nowPlaying.value = song.title;
+  setTimeout(() => {
+    nowPlaying.value = '';
+  }, 3000);
+};
+
+
 onMounted(() => {
   const canvas = canvasRef.value;
 
@@ -116,7 +146,22 @@ onMounted(() => {
   light.position.set(10, 10, 10);
   scene.add(light);
 
-  // Skateboard cube
+  // --- Visualizer Cubes ---
+  if (cube && scene) scene.remove(cube);
+  visualizerCubes = [];
+  const spacing = 0.7; // Smaller spacing
+  const startX = -((NUM_BINS - 1) * spacing) / 1;
+  for (let i = 0; i < NUM_BINS; i++) {
+    const barGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2); // Much smaller cubes
+    const barMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff99 });
+    const bar = new THREE.Mesh(barGeometry, barMaterial);
+    bar.position.set(startX + i * spacing, 7, -11); // y=1 is base
+    visualizerCubes.push(bar);
+    scene.add(bar);
+  }
+  // ---------------------------
+
+  // Original skataboard cube
   const geometry = new THREE.BoxGeometry(2, 3, 1);
   const material = new THREE.MeshStandardMaterial({ color: 0x00ff99 });
   material.transparent = true;
@@ -145,8 +190,11 @@ onMounted(() => {
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(mouse, camera);
-    // Check both cubes
-    const intersects = raycaster.intersectObjects([cube, strumCube]);
+    // Only check cubes that should be clickable
+    const clickable = [];
+    if (cube) clickable.push(cube);
+    if (strumCube) clickable.push(strumCube);
+    const intersects = raycaster.intersectObjects(clickable);
     if (intersects.length > 0) {
       if (intersects[0].object === cube) {
         showCubePopup.value = true;
@@ -181,8 +229,8 @@ onMounted(() => {
   camera.position.set(targetPosition.x, targetPosition.y, targetPosition.z);
   camera.rotation.y = targetRotY;
 
-  // Play background music
-  audio = new Audio('/src/assets/music.wav');
+  // Play background music (random from playlist)
+  audio = new Audio(currentSong.file);
   audio.loop = true;
   audio.volume = 0.5;
   // Try to play after user interaction (for browser autoplay policy)
@@ -196,6 +244,15 @@ onMounted(() => {
   strumAudio = new Audio('/src/assets/strum.wav');
   strumAudio.volume = 1.0;
 
+  // --- Web Audio API Visualizer Setup ---
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const source = audioContext.createMediaElementSource(audio);
+  analyser = audioContext.createAnalyser();
+  analyser.fftSize = NUM_BINS * 2; // 32 for 16 bars
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+  source.connect(analyser);
+  analyser.connect(audioContext.destination);
+
   // Listen for M key to mute/unmute
   window.addEventListener('keydown', (e) => {
     if (e.key === 'm' || e.key === 'M') {
@@ -206,6 +263,18 @@ onMounted(() => {
   // LOOP!
   const animate = () => {
     requestAnimationFrame(animate);
+
+    // --- Visualizer: Animate cubes with music ---
+    if (analyser && visualizerCubes.length) {
+      analyser.getByteFrequencyData(dataArray);
+      for (let i = 0; i < visualizerCubes.length; i++) {
+        // Normalize height: scale between 0.5 and 6
+        const val = dataArray[i] / 255;
+        visualizerCubes[i].scale.y = 0.5 + val * 5.5;
+        // Optionally, animate color
+        visualizerCubes[i].material.color.setHSL(0.33 - val * 0.33, 1, 0.5);
+      }
+    }
 
     // Smoothly interpolate camera position to target
     camera.position.x += (targetPosition.x - camera.position.x) * 0.1;
@@ -237,6 +306,7 @@ onMounted(() => {
   <div class="main-3d-full">
     <div class="logo"/>
     <canvas ref="canvasRef"></canvas>
+    <div class="now-playing-bar">Now playing: {{ nowPlaying }}</div>
     <div class="button-bar">
       <button @click="prevPosition">Back</button>
       <button @click="nextPosition">Next</button>
@@ -330,7 +400,7 @@ canvas {
 }
 .mute-text {
   position: absolute;
-  top: 16px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   background: rgba(30,30,30,0.92);
@@ -357,6 +427,20 @@ canvas {
   box-shadow: 0 2px 16px rgba(0,0,0,0.18);
   pointer-events: none;
   animation: fadeInOut 2s;
+}
+.now-playing-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  background: rgba(30,30,30,0.92);
+  color: #fff;
+  padding: 10px 0;
+  text-align: center;
+  font-size: 1.1em;
+  z-index: 101;
+  letter-spacing: 0.5px;
+  font-weight: 500;
 }
 @keyframes fadeInOut {
   0% { opacity: 0; }
