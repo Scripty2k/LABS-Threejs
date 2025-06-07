@@ -3,13 +3,13 @@
 
 ## Goal: 
 
-Create an interactive 3D house or environment using Three.js where users can move around and explore different rooms, each showcasing part of your creative work (music, films, visuals, etc.).
+Create an interactive 3D house or environment using Three.js where users can move around and explore different areas, each showcasing part of your creative work (music, films, visuals, etc.).
 
 ## Objectives:
 •	A stylized 3D house (can be low-poly or minimal aesthetic)
 •	First-person movement (WASD + mouse look or click to teleport)
 •	Clickable items that open projects (music players, video previews, links, etc.)
-•	Multiple “rooms” themed for:
+•	Multiple “areas” themed for:
 o	Music
 o	Film/Cinematography
 o	Visual Design/Graphics
