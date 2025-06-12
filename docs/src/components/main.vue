@@ -183,6 +183,23 @@ onMounted(() => {
   raycaster = new THREE.Raycaster();
   mouse = new THREE.Vector2();
 
+  // Change cursor on hover for interactive cubes
+  canvas.addEventListener('mousemove', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const clickable = [];
+    if (cube) clickable.push(cube);
+    if (strumCube) clickable.push(strumCube);
+    const intersects = raycaster.intersectObjects(clickable);
+    if (intersects.length > 0) {
+      canvas.style.cursor = 'pointer';
+    } else {
+      canvas.style.cursor = 'default';
+    }
+  });
+
   // for click events
   canvas.addEventListener('click', (event) => {
     // Get mouse position normalized to [-1, 1]
